@@ -1,0 +1,221 @@
+# 地址补全
+# 信息窗体，房源标记被点击时弹出
+# loadWorkLocation， 包含地理编码内容
+# loadWorkRange，地图绘制到达圈
+# loadRentLocationByFile，importRendInfo，加载房源
+# 
+
+<!DOCTYPE html>
+<html>
+  <head>
+  <title>Zurich Housing</title>
+    <style>
+       #map {
+        height: 600px;
+        width: 100%;
+       }
+
+               .control-panel {
+            position: absolute;
+            top: 30px;
+            right: 20px;
+        }
+        
+        .control-entry {
+            width: 280px;
+            background-color: rgba(119, 136, 153, 0.8);
+            font-family: fantasy, sans-serif;
+            text-align: left;
+            color: white;
+            overflow: auto;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .control-input {
+            margin-left: 120px;
+        }
+        
+        .control-input input[type="text"] {
+            width: 160px;
+        }
+        
+        .control-panel label {
+            float: left;
+            width: 120px;
+        }
+        
+        #transfer-panel {
+            position: absolute;
+            background-color: white;
+            max-height: 80%;
+            overflow-y: auto;
+            top: 30px;
+            left: 20px;
+            width: 250px;
+        }
+
+    </style>
+  </head>
+  <body>
+    <h3>Zurich Housing Map</h3>
+    <div id="container"></div>
+    <div class="control-panel">
+        <div class="control-entry">
+            <label>Enter your work location：</label>
+            <div class="control-input">
+                <input id="work-location" type="text">
+            </div>
+        </div>
+        <div class="control-entry">
+            <label>Choose the way of transportation you prefer：</label>
+            <div class="control-input">
+                <input type="radio" name="vehicle" value="DRIVING" onClick="drive(this)" checked/> Driving
+                <input type="radio" name="vehicle" value="BICYCLING" onClick="cycle(this)" /> Bicycling
+                <input type="radio" name="vehicle" value="BUS" onClick="takeBus(this)" /> Bus
+                <input type="radio" name="vehicle" value="RAIL" onClick="takeRail(this)" /> Rail
+
+            </div>
+        </div>
+        <div class="control-entry">
+            <label>Load your housing data file：</label>
+            <div class="control-input">
+                <input type="file" name="file" onChange="importRentInfo(this)" />
+            </div>
+        </div>
+    </div>
+    <div id="map"></div>
+    <script>
+
+      function initMap() {
+        var zurich = {lat: 47.377, lng: 8.542};
+        var rentMarkerArray = [];
+        var vehicle='DRIVING'
+
+        var map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 13,
+          center: zurich
+        });
+
+        var auto = new google.maps.places.Autocomplete({
+            input: "work-location"
+        });
+
+        map.addListener(auto, "select", workLocationSelected);
+
+        function drive(radio) {
+        	vehicle = radio.value;
+        	loadWorkLocation()
+        }
+
+        function cycle(radio) {
+        	vehicle = radio.value;
+        	loadWorkLocation()
+        }
+
+        function takeBus(radio) {
+        	vehicle = radio.value;
+        	loadWorkLocation()
+        }
+
+        function takeRail(radio) {
+        	vehicle = radio.value;
+        	loadWorkLocation()
+        }
+
+
+        function delRentLocation() {
+            if (rentMarkerArray) map.remove(rentMarkerArray);
+            rentMarkerArray = [];
+        }
+
+
+        function importRentInfo(fileInfo) {
+            var file = fileInfo.files[0].name;
+            loadRentLocationByFile(file);
+        }
+
+        function loadRentLocationByFile(fileName) {
+            delRentLocation();
+            var rent_locations = new Set();
+            $.get(fileName, function(data) {
+                data = data.split("\n");
+                data.forEach(function(item, index) {
+                    rent_locations.add(item.split(",")[0]);
+                });
+                rent_locations.forEach(function(element, index) {
+                    addMarkerByAddress(element);
+                });
+            });
+
+
+        function addMarkerByAddress(address) {
+            var geocoder;
+            geocoder.geocode(address, function(results, status) {
+                if (status == 'OK') {
+                    var rentMarker = new google.maps.Marker({
+                        map: map,
+                        title: address,
+                        position: results[0].geometry.location,
+                    });
+                    rentMarkerArray.push(rentMarker);
+                }
+        }
+
+        function loadWorkLocation() {
+            delWorkLocation();
+            var geocoder;
+            geocoder.geocode(workAddress, function(results, status) {
+                if (status == 'OK') {
+                	map.setCenter(results[0].geometry.location);
+                	var workmarker = new google.maps.Marker({
+                		map: map
+                		position:results[0].geometry.location,
+                	});
+                	}
+                    //loadWorkMarker(x, y);
+                    //loadWorkRange(x, y, 60, "#3f67a5", vehicle);
+                    //map.setZoomAndCenter(12, [x, y]);
+                }
+            })
+        }
+
+        function workLocationSelected(e){
+        	workAdress=e.poi.name;
+        	loadWorkLocation();
+        }
+
+        function loadWorkRange(x, y, t, color, v){
+
+
+        	arrivalRange.search([x, y], t, function(status, result) {
+                if (result.bounds) {
+                    for (var i = 0; i < result.bounds.length; i++) {
+                        var polygon = new AMap.Polygon({
+                            map: map,
+                            fillColor: color,
+                            fillOpacity: "0.4",
+                            strokeColor: color,
+                            strokeOpacity: "0.8",
+                            strokeWeight: 1
+                        });
+                        polygon.setPath(result.bounds[i]);
+                        polygonArray.push(polygon);
+                    }
+                }
+            }, {
+                policy: v
+            });
+
+        }
+
+
+
+        }
+      }
+    </script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAhM1gHTATi1VD1gMvGDN1JhcpJLHIErlM&callback=initMap">
+    </script>
+  </body>
+</html>

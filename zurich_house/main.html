@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js" type="text/javascript"></script>
+    <style>
+       #map {
+        height: 600px;
+        width: 100%;
+       }
+       .control-panel {
+            position: absolute;
+            top: 80px;
+            right: 10px;
+        }
+        
+        .control-entry {
+            width: 280px;
+            background-color: rgba(119, 136, 153, 0.8);
+            font-family: fantasy, sans-serif;
+            text-align: left;
+            color: white;
+            overflow: auto;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .control-input {
+            margin-left: 120px;
+        }
+        
+        .control-input input[type="text"] {
+            width: 160px;
+        }
+        
+        .control-panel label {
+            float: left;
+            width: 120px;
+        }
+
+        h2 {
+          font-family: fantasy, sans-serif;
+        }
+    </style>
+  </head>
+  <body onload="initMap(), loadWorkLocation()">
+    <h2><center>Zurich Housing App</center></h2>
+    <div id="map"></div>
+    <div id="container"></div>
+    <div class="control-panel">
+      <div class="control-entry">
+        <label>Choose your working place</label>
+        <div class="control-input">
+            <input id="work-location" type="text">
+        </div>
+      </div>
+      <div class="control-entry">
+        <label>Choose your way of transportation</label>
+          <div class="control-input">
+              <input type="radio" name="vehicle" value="DRIVING" onClick = "drive(this)" checked/> Drive
+              <input type="radio" name="vehicle" value="TRANSIT" onClick = "bus(this)" /> Transit
+
+
+          </div>
+        </div>
+      <div class="control-entry">
+        <label>Load your housing data file</label>
+        <div class="control-input">
+          <input type="file" name="file" onChange="importRentInfo(this)" />
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      data from www.wgzimmer.ch
+    </div>
+
+    <script>
+      var map;
+      var geocoder;
+      var workPos;
+      var time;
+      var vehicle = "DRIVING";
+      var infowindow;
+
+      function drive(radio) {
+            vehicle = radio.value;
+        }
+      function bike(radio) {
+            vehicle = radio.value;
+        }
+      function bus(radio) {
+            vehicle = radio.value;
+        }
+
+
+
+      function initMap() {
+        var zurich = {lat: 47.377, lng: 8.542};
+        map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 13,
+          center: zurich
+        });
+      }  
+
+      function loadRentLocationByFile(fileName) {
+        var rent_locations = new Set();
+        $.get(fileName, function(data) {
+            data = data.split("\n");
+            data.forEach(function(item, index) {
+            //if (item.length == 6) { 
+            var items= item.split(",");
+            if (items.length == 6) {
+                var pos = items[5].split(" ");
+                var rentMarker = new google.maps.Marker({
+                  map: map,
+                  position:{'lat': parseFloat(pos[0]), 'lng': parseFloat(pos[1])}
+                });
+                var price = items[1];
+                var start_date = items[2];
+                var end_date = items[3];
+                var link = items[4];
+                var address = items[0];
+
+                var request = {
+                  origins: [workPos],
+                  destinations: [{'lat': parseFloat(pos[0]), 'lng': parseFloat(pos[1])}],
+                  travelMode: vehicle,
+                  //transitOptions: null,
+                };
+
+                var service = new google.maps.DistanceMatrixService();
+                service.getDistanceMatrix(request, function(response, status){
+                  if (status == "OK") {
+                    time = response.rows[0].elements[0].duration.text;
+
+                    var contentString="<div id='content'>" +
+                      "<p> <strong> address: </strong>" + address + "</p>" +
+                      "<p> <strong> price: </strong>" + price + "</p>" +
+                      "<p> <strong> start date: </strong>" + start_date + "</p>" +
+                      "<p> <strong> end date: </strong>" + end_date + "</p>" +
+                      "<p> <strong> url: </strong>" + link + "</p>" +
+                      "<p> <strong> time to your work place: </strong>" + time + "</p>"
+                      "</div>";
+                if (infowindow) infowindow.close()
+                infowindow = new google.maps.InfoWindow({
+                  content: contentString
+                });
+                rentMarker.addListener('click', function(){
+                  infowindow.open(map, rentMarker)
+                })
+
+                  }
+                })
+
+                //directionService.route(request, function(response, status){
+//                  if (status == 'OK') {
+//                    time = response.routes[0].legs[0].steps[0].duration.value;
+//                    distance = response.routes[0].legs[0].steps[0].distance.value;
+//                  }
+//                })
+
+
+            }
+            });
+        });
+      }
+
+      function importRentInfo(fileInfo) {
+        var file = fileInfo.files[0].name;
+        loadRentLocationByFile(file);
+      }
+
+
+
+      function loadWorkLocation() {
+        var input = document.getElementById('work-location');
+        var options = {
+          componentRestrictions: {country: 'ch'}
+        };
+        var autocomplete = new google.maps.places.Autocomplete(input, options);
+        autocomplete.bindTo('bounds', map);
+        autocomplete.addListener('place_changed', function() {
+        var workAddress = autocomplete.getPlace();
+        workPos=workAddress.geometry.location;
+        var image = 'https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png';
+        var workMarker = new google.maps.Marker({
+                      map: map,
+                      position: workPos,
+                      icon: image,
+                    });
+            })
+  
+        }
+
+    </script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAZPRru1ootnehBuJ37azwTCrgPnWd_pGQ&callback=initMap&libraries=places&sensor=false">
+
+    </script>
+  </body>
+</html>
